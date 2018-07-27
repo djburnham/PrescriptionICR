@@ -1,0 +1,589 @@
+{
+    "status": "Succeeded",
+    "succeeded": true,
+    "failed": false,
+    "finished": true,
+    "recognitionResult": {
+      "lines": [
+        {
+          "boundingBox": [
+            13,
+            4,
+            188,
+            5,
+            187,
+            16,
+            12,
+            15
+          ],
+          "text": "Number of days' treatment",
+          "words": [
+            {
+              "boundingBox": [
+                12,
+                6,
+                64,
+                5,
+                64,
+                17,
+                12,
+                16
+              ],
+              "text": "Number"
+            },
+            {
+              "boundingBox": [
+                69,
+                5,
+                83,
+                5,
+                83,
+                17,
+                69,
+                17
+              ],
+              "text": "of"
+            },
+            {
+              "boundingBox": [
+                85,
+                5,
+                119,
+                5,
+                119,
+                17,
+                85,
+                17
+              ],
+              "text": "days'"
+            },
+            {
+              "boundingBox": [
+                122,
+                5,
+                188,
+                7,
+                187,
+                16,
+                122,
+                17
+              ],
+              "text": "treatment"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            309,
+            5,
+            399,
+            6,
+            398,
+            17,
+            308,
+            16
+          ],
+          "text": "NHS Number:",
+          "words": [
+            {
+              "boundingBox": [
+                309,
+                6,
+                337,
+                6,
+                337,
+                17,
+                309,
+                17
+              ],
+              "text": "NHS"
+            },
+            {
+              "boundingBox": [
+                340,
+                6,
+                399,
+                6,
+                399,
+                18,
+                340,
+                17
+              ],
+              "text": "Number:"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            12,
+            18,
+            177,
+            17,
+            178,
+            28,
+            13,
+            29
+          ],
+          "text": "N.B. Ensure dose is stated",
+          "words": [
+            {
+              "boundingBox": [
+                12,
+                18,
+                40,
+                18,
+                40,
+                30,
+                12,
+                30
+              ],
+              "text": "N.B."
+            },
+            {
+              "boundingBox": [
+                42,
+                19,
+                84,
+                19,
+                84,
+                30,
+                42,
+                30
+              ],
+              "text": "Ensure"
+            },
+            {
+              "boundingBox": [
+                89,
+                19,
+                119,
+                19,
+                119,
+                30,
+                89,
+                30
+              ],
+              "text": "dose"
+            },
+            {
+              "boundingBox": [
+                123,
+                19,
+                134,
+                19,
+                133,
+                30,
+                122,
+                30
+              ],
+              "text": "is"
+            },
+            {
+              "boundingBox": [
+                135,
+                19,
+                175,
+                19,
+                174,
+                29,
+                135,
+                30
+              ],
+              "text": "stated"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            12,
+            34,
+            111,
+            35,
+            110,
+            47,
+            11,
+            46
+          ],
+          "text": "Endorsements",
+          "words": [
+            {
+              "boundingBox": [
+                13,
+                35,
+                110,
+                36,
+                110,
+                47,
+                13,
+                47
+              ],
+              "text": "Endorsements"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            125,
+            24,
+            498,
+            25,
+            497,
+            41,
+            124,
+            40
+          ],
+          "text": "Phenoxymethylpenicillin 125mg/5ml orel solution",
+          "words": [
+            {
+              "boundingBox": [
+                129,
+                27,
+                307,
+                25,
+                307,
+                41,
+                129,
+                39
+              ],
+              "text": "Phenoxymethylpenicillin"
+            },
+            {
+              "boundingBox": [
+                314,
+                25,
+                398,
+                26,
+                398,
+                41,
+                314,
+                41
+              ],
+              "text": "125mg/5ml"
+            },
+            {
+              "boundingBox": [
+                401,
+                26,
+                432,
+                26,
+                432,
+                41,
+                401,
+                41
+              ],
+              "text": "orel"
+            },
+            {
+              "boundingBox": [
+                435,
+                26,
+                490,
+                27,
+                490,
+                41,
+                435,
+                41
+              ],
+              "text": "solution"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            11,
+            58,
+            101,
+            56,
+            102,
+            74,
+            12,
+            77
+          ],
+          "text": "1)100ex100",
+          "words": [
+            {
+              "boundingBox": [
+                12,
+                59,
+                103,
+                58,
+                103,
+                75,
+                12,
+                77
+              ],
+              "text": "1)100ex100"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            126,
+            40,
+            415,
+            41,
+            414,
+            59,
+            125,
+            58
+          ],
+          "text": "sugar free (Kent Pharmaceuticals Ltd)",
+          "words": [
+            {
+              "boundingBox": [
+                128,
+                42,
+                174,
+                42,
+                175,
+                60,
+                129,
+                60
+              ],
+              "text": "sugar"
+            },
+            {
+              "boundingBox": [
+                172,
+                42,
+                204,
+                42,
+                205,
+                60,
+                173,
+                60
+              ],
+              "text": "free"
+            },
+            {
+              "boundingBox": [
+                205,
+                42,
+                254,
+                42,
+                254,
+                59,
+                206,
+                60
+              ],
+              "text": "(Kent"
+            },
+            {
+              "boundingBox": [
+                254,
+                42,
+                380,
+                42,
+                379,
+                60,
+                254,
+                59
+              ],
+              "text": "Pharmaceuticals"
+            },
+            {
+              "boundingBox": [
+                381,
+                42,
+                415,
+                43,
+                415,
+                60,
+                380,
+                60
+              ],
+              "text": "Ltd)"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            128,
+            57,
+            320,
+            58,
+            319,
+            76,
+            127,
+            75
+          ],
+          "text": "1x5ml spoon 4 times/day",
+          "words": [
+            {
+              "boundingBox": [
+                129,
+                58,
+                178,
+                59,
+                179,
+                76,
+                130,
+                76
+              ],
+              "text": "1x5ml"
+            },
+            {
+              "boundingBox": [
+                177,
+                59,
+                223,
+                59,
+                223,
+                76,
+                178,
+                76
+              ],
+              "text": "spoon"
+            },
+            {
+              "boundingBox": [
+                228,
+                59,
+                239,
+                59,
+                239,
+                76,
+                228,
+                76
+              ],
+              "text": "4"
+            },
+            {
+              "boundingBox": [
+                240,
+                59,
+                319,
+                59,
+                318,
+                77,
+                241,
+                76
+              ],
+              "text": "times/day"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            129,
+            75,
+            184,
+            76,
+            183,
+            90,
+            128,
+            88
+          ],
+          "text": "200 ml",
+          "words": [
+            {
+              "boundingBox": [
+                129,
+                75,
+                157,
+                76,
+                158,
+                90,
+                129,
+                90
+              ],
+              "text": "200"
+            },
+            {
+              "boundingBox": [
+                160,
+                77,
+                183,
+                77,
+                183,
+                91,
+                160,
+                90
+              ],
+              "text": "ml"
+            }
+          ]
+        },
+        {
+          "boundingBox": [
+            129,
+            108,
+            327,
+            110,
+            326,
+            126,
+            128,
+            124
+          ],
+          "text": "1 item on this prescription",
+          "words": [
+            {
+              "boundingBox": [
+                130,
+                109,
+                139,
+                109,
+                139,
+                124,
+                130,
+                124
+              ],
+              "text": "1"
+            },
+            {
+              "boundingBox": [
+                141,
+                109,
+                169,
+                110,
+                169,
+                125,
+                141,
+                124
+              ],
+              "text": "item"
+            },
+            {
+              "boundingBox": [
+                181,
+                110,
+                197,
+                111,
+                197,
+                125,
+                181,
+                125
+              ],
+              "text": "on"
+            },
+            {
+              "boundingBox": [
+                201,
+                111,
+                231,
+                111,
+                231,
+                125,
+                201,
+                125
+              ],
+              "text": "this"
+            },
+            {
+              "boundingBox": [
+                235,
+                111,
+                322,
+                112,
+                322,
+                125,
+                235,
+                125
+              ],
+              "text": "prescription"
+            }
+          ]
+        }
+      ]
+    }
+  }
