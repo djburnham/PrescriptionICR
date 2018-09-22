@@ -2,3 +2,6 @@ pprocexec
 findScriptItems/pycosdbchk.py
 findScriptItems/config.ini
 findScriptItems/testcode
+.vscode/launch.json
+findScriptItems/script16.json
+findScriptItems/script16_out.json
