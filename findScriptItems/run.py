@@ -1,12 +1,13 @@
+from __future__ import print_function
+from pydocumentdb import document_client
 import os
 import json
+import sys
+import requests
+import ConfigParser
+from pprint import pprint as pp
 
-_AZURE_FUNCTION_DEFAULT_METHOD = "POST"
-_AZURE_FUNCTION_HTTP_INPUT_ENV_NAME = "req"
-_AZURE_FUNCTION_HTTP_OUTPUT_ENV_NAME = "res"
-_REQ_PREFIX = "REQ_"
-_LINE_PROXIMITY_TOLERANCE = 5
-_JUSTIFICATION_TOLERANCE = 8
+__author__ = 'David.Burnham@microsoft.com'
 
 def bbTop(bbox):
     #Return the top of the bounding box
@@ -46,79 +47,103 @@ def write_http_response(status, body_dict):
     output.write(json.dumps(return_dict))
     output.close()
 
-print("Started processing the OCR Data")
-env = os.environ
 
-# Get HTTP METHOD
-http_method = env['REQ_METHOD'] if 'REQ_METHOD' in env else _AZURE_FUNCTION_DEFAULT_METHOD
-print("HTTP METHOD => {}".format(http_method))
+if __name__ == '__main__':
 
-if http_method.lower() == 'post':
-    request_body = open(env[_AZURE_FUNCTION_HTTP_INPUT_ENV_NAME], "r").read()
-    print("Got request body as Text")
-else:
-    resp = {"message" : "need to call this service with POST method to be useful."}
-    write_http_response(200, resp )
-    exit(0)
+    #Get the configuration variables for the run
+    config = ConfigParser.ConfigParser()
+    config.read('findScriptItems/config.ini')
 
-# get request_body as a dictionary
-try:
-    postdict = json.loads(request_body)
-except ValueError as e:
-    erresp = {"errmsg" : "Could not deserialise posted body - is it valid json?"}      
-    write_http_response(400, erresp )
-    exit(0)
+    LUIS_URL = config.get('FINDSCRIPTITEMS', 'LUIS_URL')
+    SUB_KEY = config.get('FINDSCRIPTITEMS', 'SUB_KEY')
+    LUIS_MATCH_SCORE_MIN = config.getfloat('FINDSCRIPTITEMS', 'LUIS_MATCH_SCORE_MIN')
 
-if ( 'recognitionResult' not in postdict.keys()
- and 'succeeded' not in postdict.keys()):
-    erresp = {"errmsg" : "recognitionResult and succeeded values not found in posted body json"}
-    write_http_response(400, erresp )
-    exit(0)
-#
-textBlocks = []
-for lidx, l_rec in enumerate(postdict['recognitionResult']['lines']):
-    # check each line with others to see if there is a top/bottom
-    # & justification match                
-    for midx, m_rec in enumerate(postdict['recognitionResult']['lines']):
-        if (midx != lidx):
-            # we don't want to match ourselves
-            # check if lower is within LINE_PROXIMITY_TOLERANCE 
-            #  of next line upper and we have L or R justification
-            if( lineMatch(l_rec['boundingBox'] , m_rec['boundingBox'])):
-                # if we have a match add to existing 
-                # text block list or create a new one
-                eitherLineFound = False
-                for tbtidx in range(0,len(textBlocks)):
-                    if lidx in textBlocks[tbtidx]  and midx not in textBlocks[tbtidx]:
-                        textBlocks[tbtidx].append(midx)
-                        eitherLineFound = True
-                    if midx in textBlocks[tbtidx]  and lidx not in textBlocks[tbtidx]:
-                        textBlocks[tbtidx].append(lidx)
-                        eitherLineFound = True
-                        # if we pass thru loop testing each list and don't find either line 
-                        # add as new list
-                if eitherLineFound == False:
-                    textBlocks.append([lidx,midx])
-print(textBlocks)                
-# We can still have lines that don't match any others
-#  -we need to add them 
-for slNo in range(0, len(postdict['recognitionResult']['lines']) ):
-    lnInTblk = False
-    for tBlck in textBlocks:
-        if slNo in tBlck:
-            lnInTblk = True
-    if lnInTblk == False:
-        textBlocks.append([slNo,])
+    CdbURI = config.get('FINDSCRIPTITEMS', 'CdbURI')
+    CdbKey = config.get('FINDSCRIPTITEMS', 'CdbKey')
+    CdbID = config.get('FINDSCRIPTITEMS', 'CdbID')
+    CdbCollID = config.get('FINDSCRIPTITEMS', 'CdbCollID')
 
-# array of text block arrays of text lines
-tbArray = []
-for tb in textBlocks:
-    tBlck = []
-    for ln in tb:
-            lineDir = {'lineNo' : ln, 'lineTxt': postdict['recognitionResult']['lines'][ln]['text'] }
-            tBlck.append(lineDir)
-            print(postdict['recognitionResult']['lines'][ln]['text'])
-                # 
-    tbArray.append(tBlck)
+    _AZURE_FUNCTION_DEFAULT_METHOD = "POST"
+    _AZURE_FUNCTION_HTTP_INPUT_ENV_NAME = "req"
+    _AZURE_FUNCTION_HTTP_OUTPUT_ENV_NAME = "res"
+    _REQ_PREFIX = "REQ_"
+    _LINE_PROXIMITY_TOLERANCE = 5
+    _JUSTIFICATION_TOLERANCE = 8
 
-write_http_response(200, tbArray)
+    
+    print("Started processing the OCR Data")
+    env = os.environ
+
+    # Get HTTP METHOD
+    http_method = env['REQ_METHOD'] if 'REQ_METHOD' in env else _AZURE_FUNCTION_DEFAULT_METHOD
+    print("HTTP METHOD => {}".format(http_method))
+
+    if http_method.lower() == 'post':
+        request_body = open(env[_AZURE_FUNCTION_HTTP_INPUT_ENV_NAME], "r").read()
+        print("Got request body as Text")
+    else:
+        resp = {"message" : "need to call this service with POST method to be useful."}
+        write_http_response(200, resp )
+        exit(0)
+
+    # get request_body as a dictionary
+    try:
+        postdict = json.loads(request_body)
+    except ValueError as e:
+        erresp = {"errmsg" : "Could not deserialise posted body - is it valid json?"}      
+        write_http_response(400, erresp )
+        exit(0)
+
+    if ( 'recognitionResult' not in postdict.keys()
+    and 'succeeded' not in postdict.keys()):
+        erresp = {"errmsg" : "recognitionResult and succeeded values not found in posted body json"}
+        write_http_response(400, erresp )
+        exit(0)
+    #
+    textBlocks = []
+    for lidx, l_rec in enumerate(postdict['recognitionResult']['lines']):
+        # check each line with others to see if there is a top/bottom
+        # & justification match                
+        for midx, m_rec in enumerate(postdict['recognitionResult']['lines']):
+            if (midx != lidx):
+                # we don't want to match ourselves
+                # check if lower is within LINE_PROXIMITY_TOLERANCE 
+                #  of next line upper and we have L or R justification
+                if( lineMatch(l_rec['boundingBox'] , m_rec['boundingBox'])):
+                    # if we have a match add to existing 
+                    # text block list or create a new one
+                    eitherLineFound = False
+                    for tbtidx in range(0,len(textBlocks)):
+                        if lidx in textBlocks[tbtidx]  and midx not in textBlocks[tbtidx]:
+                            textBlocks[tbtidx].append(midx)
+                            eitherLineFound = True
+                        if midx in textBlocks[tbtidx]  and lidx not in textBlocks[tbtidx]:
+                            textBlocks[tbtidx].append(lidx)
+                            eitherLineFound = True
+                            # if we pass thru loop testing each list and don't find either line 
+                            # add as new list
+                    if eitherLineFound == False:
+                        textBlocks.append([lidx,midx])
+    print(textBlocks)                
+    # We can still have lines that don't match any others
+    #  -we need to add them 
+    for slNo in range(0, len(postdict['recognitionResult']['lines']) ):
+        lnInTblk = False
+        for tBlck in textBlocks:
+            if slNo in tBlck:
+                lnInTblk = True
+        if lnInTblk == False:
+            textBlocks.append([slNo,])
+
+    # array of text block arrays of text lines
+    tbArray = []
+    for tb in textBlocks:
+        tBlck = []
+        for ln in tb:
+                lineDir = {'lineNo' : ln, 'lineTxt': postdict['recognitionResult']['lines'][ln]['text'] }
+                tBlck.append(lineDir)
+                print(postdict['recognitionResult']['lines'][ln]['text'])
+                    # 
+        tbArray.append(tBlck)
+
+    write_http_response(200, tbArray)
