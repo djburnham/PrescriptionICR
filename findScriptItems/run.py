@@ -96,8 +96,7 @@ def textBlockScan(postdict):
         for ln in tb:
                 lineDir = {'lineNo' : ln, 'lineTxt': postdict['recognitionResult']['lines'][ln]['text'] }
                 tBlck.append(lineDir)
-                print(postdict['recognitionResult']['lines'][ln]['text'])
-                    # 
+                # 
         tbArray.append(tBlck)
     #
     return(tbArray)
@@ -183,13 +182,11 @@ if __name__ == '__main__':
         print("Error - are you sure you have the collection name correct?")
     coll_link = coll['_self']
 
-    
     print("Started processing the OCR Data")
     env = os.environ
 
     # Get HTTP METHOD
     http_method = env['REQ_METHOD'] if 'REQ_METHOD' in env else _AZURE_FUNCTION_DEFAULT_METHOD
-    print("HTTP METHOD => {}".format(http_method))
 
     if http_method.lower() == 'post':
         request_body = open(env[_AZURE_FUNCTION_HTTP_INPUT_ENV_NAME], "r").read()
