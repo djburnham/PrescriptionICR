@@ -10,32 +10,36 @@ from pprint import pprint as pp
 __author__ = 'David.Burnham@microsoft.com'
 
 def bbTop(bbox):
-    #Return the top of the bounding box
+    """Return the top of the bounding box"""
     return((bbox[1]+bbox[3])/2 )
     
 def bbBottom(bbox):
-    #Return the bottom of the boundng box
+    """Return the bottom of the boundng box"""
     return((bbox[5]+bbox[7])/2 )
 
 def isJustified(bbox1, bbox2):
-    #Check if bounding boxes are left or right justified
-    if abs( ((bbox1[0] + bbox1[6])/2) - ((bbox2[0] + bbox2[6])/2) ) <= _JUSTIFICATION_TOLERANCE:
+    """Check if bounding boxes are left or right justified"""
+    if ( abs( ((bbox1[0] + bbox1[6])/2) - ((bbox2[0] + bbox2[6])/2) ) 
+    <= _JUSTIFICATION_TOLERANCE):
         return(True) # left justified
     #
-    if abs( ((bbox1[2] + bbox1[4])/2) - ((bbox2[2] + bbox2[4])/2) ) <= _JUSTIFICATION_TOLERANCE:
+    if ( abs( ((bbox1[2] + bbox1[4])/2) - ((bbox2[2] + bbox2[4])/2) )
+       <= _JUSTIFICATION_TOLERANCE):
         return(True) # right justified
     else:
         return(False) 
 
 def lineMatch(bbox1, bbox2):
-    # check if bottom and top of lines are close enough to be part of a text block
-    if (abs(bbBottom(bbox1) - bbTop(bbox2) ) <= _LINE_PROXIMITY_TOLERANCE ) and isJustified(bbox1, bbox2):
+    """ check if bottom and top of lines are close enough 
+        to be part of a text block"""
+    if ( (abs(bbBottom(bbox1) - bbTop(bbox2) ) <= _LINE_PROXIMITY_TOLERANCE )
+       and isJustified(bbox1, bbox2) ):
         return(True)
     else:
         return(False)
     
 def write_http_response(status, body_dict):
-    # Format and write out an http response  
+    """Format and write out an http response  """
     return_dict = {
         "status": status,
         "body": body_dict,
@@ -98,6 +102,48 @@ def textBlockScan(postdict):
     #
     return(tbArray)
 
+def lookupMedProd(medProdStr):
+    """check the medical products store in CosmosDB for the product
+    Todo:
+        This only does exact matches - need fuzzy matching
+        There is almost no error handling - what if the network
+            database is not available?
+    """
+    query = {'query': "SELECT * FROM prescriptionItems p WHERE p.MEDICINAL_PRODUCT_NAME = '{0}'".format(medProdStr)}
+    docs = CdbClient.QueryDocuments(coll_link, query)
+    resLst = list(docs)
+    resDict = dict()
+    if len(resLst) == 1:
+        resDict['search'] = 'oneFound'
+        resDict['medical_product_name'] = resLst[0][u'MEDICINAL_PRODUCT_NAME']
+        resDict['product_id'] = resLst[0][u'id']
+        return resDict
+    else:
+        # do something sensible if we get none or many results back
+        resDict['search'] = 'notOneFound'
+        return resDict
+
+def makeLUIScall(line):
+    """make a call to the LUIS service to see Line intent
+    """
+    try:
+        r = requests.get(LUIS_URL, params={'subscription-key': SUB_KEY, 'q': line})
+    except requests.exceptions.RequestException as e:  # This is the correct syntax
+        print(e)
+        sys.exit(1)
+    if r.status_code == 200:
+        resDir = json.loads(r.text)
+        if resDir['topScoringIntent']['score'] > LUIS_MATCH_SCORE_MIN:
+            resDir['result'] = 'success'
+            return resDir
+        else:
+            resDir['result'] = 'inconclusive'
+            return resDir
+    else:
+        resDir = dict()
+        resDir['result'] = 'callFailed'
+        return resDir
+
 if __name__ == '__main__':
 
     #Get the configuration variables for the run
@@ -119,6 +165,23 @@ if __name__ == '__main__':
     _REQ_PREFIX = "REQ_"
     _LINE_PROXIMITY_TOLERANCE = 5
     _JUSTIFICATION_TOLERANCE = 8
+
+    # set up access to the Cosmos DB instance
+        # set up a connection to CosmsoDB
+    CdbClient = document_client.DocumentClient(CdbURI, {'masterKey': CdbKey})
+    # get the db identifier
+    db_query = "select * from r where r.id = '{0}'".format(CdbID)
+    db = list(CdbClient.QueryDatabases(db_query))[0]
+    db_link = db['_self']
+    # get the collections ID
+    coll_id = CdbCollID
+    coll_query = "select * from r where r.id = '{0}'".format(coll_id)
+    collLst = list(CdbClient.QueryCollections(db_link, coll_query))
+    if len(collLst) == 1:
+        coll = list(CdbClient.QueryCollections(db_link, coll_query))[0]
+    else:
+        print("Error - are you sure you have the collection name correct?")
+    coll_link = coll['_self']
 
     
     print("Started processing the OCR Data")
