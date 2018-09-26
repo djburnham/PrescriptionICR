@@ -47,6 +47,56 @@ def write_http_response(status, body_dict):
     output.write(json.dumps(return_dict))
     output.close()
 
+def textBlockScan(postdict):
+    """ Scans the output of the OCR cognitive service and puts the lines of text
+        into blocks by their placement and justification """
+    textBlocks = []
+    for lidx, l_rec in enumerate(postdict['recognitionResult']['lines']):
+        # check each line with others to see if there is a top/bottom
+        # & justification match                
+        for midx, m_rec in enumerate(postdict['recognitionResult']['lines']):
+            if (midx != lidx):
+                # we don't want to match ourselves
+                # check if lower is within LINE_PROXIMITY_TOLERANCE 
+                #  of next line upper and we have L or R justification
+                if( lineMatch(l_rec['boundingBox'] , m_rec['boundingBox'])):
+                    # if we have a match add to existing 
+                    # text block list or create a new one
+                    eitherLineFound = False
+                    for tbtidx in range(0,len(textBlocks)):
+                        if lidx in textBlocks[tbtidx]  and midx not in textBlocks[tbtidx]:
+                            textBlocks[tbtidx].append(midx)
+                            eitherLineFound = True
+                        if midx in textBlocks[tbtidx]  and lidx not in textBlocks[tbtidx]:
+                            textBlocks[tbtidx].append(lidx)
+                            eitherLineFound = True
+                            # if we pass thru loop testing each list and don't find either line 
+                            # add as new list
+                    if eitherLineFound == False:
+                        textBlocks.append([lidx,midx])
+    # print(textBlocks)                
+    # We can still have lines that don't match any others
+    #  -we need to add them 
+    for slNo in range(0, len(postdict['recognitionResult']['lines']) ):
+        lnInTblk = False
+        for tBlck in textBlocks:
+            if slNo in tBlck:
+                lnInTblk = True
+        if lnInTblk == False:
+            textBlocks.append([slNo,])
+
+    # array of text block arrays of text lines
+    tbArray = []
+    for tb in textBlocks:
+        tBlck = []
+        for ln in tb:
+                lineDir = {'lineNo' : ln, 'lineTxt': postdict['recognitionResult']['lines'][ln]['text'] }
+                tBlck.append(lineDir)
+                print(postdict['recognitionResult']['lines'][ln]['text'])
+                    # 
+        tbArray.append(tBlck)
+    #
+    return(tbArray)
 
 if __name__ == '__main__':
 
@@ -62,7 +112,7 @@ if __name__ == '__main__':
     CdbKey = config.get('FINDSCRIPTITEMS', 'CdbKey')
     CdbID = config.get('FINDSCRIPTITEMS', 'CdbID')
     CdbCollID = config.get('FINDSCRIPTITEMS', 'CdbCollID')
-
+    # these should also go into the config file
     _AZURE_FUNCTION_DEFAULT_METHOD = "POST"
     _AZURE_FUNCTION_HTTP_INPUT_ENV_NAME = "req"
     _AZURE_FUNCTION_HTTP_OUTPUT_ENV_NAME = "res"
@@ -100,50 +150,7 @@ if __name__ == '__main__':
         write_http_response(400, erresp )
         exit(0)
     #
-    textBlocks = []
-    for lidx, l_rec in enumerate(postdict['recognitionResult']['lines']):
-        # check each line with others to see if there is a top/bottom
-        # & justification match                
-        for midx, m_rec in enumerate(postdict['recognitionResult']['lines']):
-            if (midx != lidx):
-                # we don't want to match ourselves
-                # check if lower is within LINE_PROXIMITY_TOLERANCE 
-                #  of next line upper and we have L or R justification
-                if( lineMatch(l_rec['boundingBox'] , m_rec['boundingBox'])):
-                    # if we have a match add to existing 
-                    # text block list or create a new one
-                    eitherLineFound = False
-                    for tbtidx in range(0,len(textBlocks)):
-                        if lidx in textBlocks[tbtidx]  and midx not in textBlocks[tbtidx]:
-                            textBlocks[tbtidx].append(midx)
-                            eitherLineFound = True
-                        if midx in textBlocks[tbtidx]  and lidx not in textBlocks[tbtidx]:
-                            textBlocks[tbtidx].append(lidx)
-                            eitherLineFound = True
-                            # if we pass thru loop testing each list and don't find either line 
-                            # add as new list
-                    if eitherLineFound == False:
-                        textBlocks.append([lidx,midx])
-    print(textBlocks)                
-    # We can still have lines that don't match any others
-    #  -we need to add them 
-    for slNo in range(0, len(postdict['recognitionResult']['lines']) ):
-        lnInTblk = False
-        for tBlck in textBlocks:
-            if slNo in tBlck:
-                lnInTblk = True
-        if lnInTblk == False:
-            textBlocks.append([slNo,])
-
-    # array of text block arrays of text lines
-    tbArray = []
-    for tb in textBlocks:
-        tBlck = []
-        for ln in tb:
-                lineDir = {'lineNo' : ln, 'lineTxt': postdict['recognitionResult']['lines'][ln]['text'] }
-                tBlck.append(lineDir)
-                print(postdict['recognitionResult']['lines'][ln]['text'])
-                    # 
-        tbArray.append(tBlck)
+    # now we call textBlockScan to get an array of textBlocks back by placement
+    tbArray = textBlockScan(postdict)
 
     write_http_response(200, tbArray)
