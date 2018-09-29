@@ -132,7 +132,7 @@ def makeLUIScall(line):
         sys.exit(1)
     if r.status_code == 200:
         resDir = json.loads(r.text)
-        if resDir['topScoringIntent']['score'] > LUIS_MATCH_SCORE_MIN:
+        if float(resDir['topScoringIntent']['score']) > LUIS_MATCH_SCORE_MIN:
             resDir['result'] = 'success'
             return resDir
         else:
@@ -142,6 +142,38 @@ def makeLUIScall(line):
         resDir = dict()
         resDir['result'] = 'callFailed'
         return resDir
+
+def toInt(inStr):
+    """ return an integer from a text string or word """
+    inStr = inStr.encode('ascii','ignore')
+    inStr = inStr.strip().lower()
+    convDict = {
+                    'one':1,
+                    'two':2,
+                    'three':3,
+                    'four':4,
+                    'five':5,
+                    'six':6,
+                    'seven':7,
+                    'eight':8,
+                    'nine':9,
+                    'ten':10,
+                    '1':1,
+                    '2':2,
+                    '3':3,
+                    '4':4,
+                    '5':5,
+                    '6':6,
+                    '7':7,
+                    '8':8,
+                    '9':9,
+                    '10':10 }
+
+    if inStr not in convDict.keys():
+        return 0
+    else:
+        return convDict[inStr]               
+
 
 if __name__ == '__main__':
 
@@ -164,6 +196,8 @@ if __name__ == '__main__':
     _REQ_PREFIX = "REQ_"
     _LINE_PROXIMITY_TOLERANCE = 5
     _JUSTIFICATION_TOLERANCE = 8
+
+    LUIScalls = 0
 
     # set up access to the Cosmos DB instance
         # set up a connection to CosmsoDB
@@ -212,5 +246,27 @@ if __name__ == '__main__':
     #
     # now we call textBlockScan to get an array of textBlocks back by placement
     tbArray = textBlockScan(postdict)
+    # we iterate over tbArray calling LuiS model on each line and adding the intent to the tbArray
+    for textBlock in tbArray:
+        for textLine in textBlock:
+            # each line in a block
+            LUISres = makeLUIScall(textLine['lineTxt'])
+            LUIScalls = LUIScalls + 1
+            if LUISres['result'] == 'success':
+                textLine['LUISres'] = LUISres['topScoringIntent']['intent']
+                textLine['LUISscore'] = LUISres['topScoringIntent']['score']
+                if ( LUISres['topScoringIntent']['intent'] == 
+                    'prescriptionItemNumber'):
+                    # need to get the number of items on the prescription if
+                    # intent is detected and find entity in the returned LUISres
+                    if ( (len(LUISres['entities']) == 1 ) 
+                    and LUISres['entities'][0]['type'] == "noItem"):
+                        noPresItemChk = toInt(LUISres['entities'][0]['entity'])
+                        print("Expect to find {} items in script".format(noPresItemChk))
+            else:
+                textLine['LUISres'] = 'undetermined'
+            
+
+    
 
     write_http_response(200, tbArray)
