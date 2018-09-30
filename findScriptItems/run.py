@@ -108,7 +108,9 @@ def lookupMedProd(medProdStr):
         There is almost no error handling - what if the network
             database is not available?
     """
-    query = {'query': "SELECT * FROM prescriptionItems p WHERE p.MEDICINAL_PRODUCT_NAME = '{0}'".format(medProdStr)}
+    query = {'query': """SELECT * FROM prescriptionItems p 
+     WHERE CONTAINS('{0}', p.MEDICINAL_PRODUCT_NAME )""".format(medProdStr)}
+    
     docs = CdbClient.QueryDocuments(coll_link, query)
     resLst = list(docs)
     resDict = dict()
@@ -255,6 +257,7 @@ if __name__ == '__main__':
             if LUISres['result'] == 'success':
                 textLine['LUISres'] = LUISres['topScoringIntent']['intent']
                 textLine['LUISscore'] = LUISres['topScoringIntent']['score']
+
                 if ( LUISres['topScoringIntent']['intent'] == 
                     'prescriptionItemNumber'):
                     # need to get the number of items on the prescription if
@@ -263,10 +266,21 @@ if __name__ == '__main__':
                     and LUISres['entities'][0]['type'] == "noItem"):
                         noPresItemChk = toInt(LUISres['entities'][0]['entity'])
                         print("Expect to find {} items in script".format(noPresItemChk))
+
+                if ( LUISres['topScoringIntent']['intent'] == 
+                    'medicinalProductName'):
+                    # We are relying on the LUIS model finding the med product
+                    # Should we also test none intent also ?
+                    # see if we can find the medical product in the database
+                    lookUpDict = lookupMedProd(textLine['lineTxt'])
+                    if lookUpDict['search'] == 'oneFound':
+                        textLine['MedProdName'] = lookUpDict['medical_product_name']
+                        textLine['MedProdID'] = int(lookUpDict['product_id'])
+
             else:
                 textLine['LUISres'] = 'undetermined'
-            
-
-    
+    # Finally we will try and identify medical products and quantities 
+    # from the augmented textBlocks
+                
 
     write_http_response(200, tbArray)
