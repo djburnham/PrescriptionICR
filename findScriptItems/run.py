@@ -5,6 +5,7 @@ import json
 import sys
 import requests
 import ConfigParser
+import copy
 from pprint import pprint as pp
 
 __author__ = 'David.Burnham@microsoft.com'
@@ -176,6 +177,26 @@ def toInt(inStr):
     else:
         return convDict[inStr]               
 
+def lineInSameBlockAsLineList(lineNo, lineList):
+    """ Function to see if lineNo is in a textBlock that also contains 
+    any of the lines in the list containined in lineList """
+    lineListInBlock = []
+    for textBlock in tbArray:
+        for textLine in textBlock:
+            # get line numbers in the block
+            lineListInBlock.append(textLine['lineNo'])
+        if lineNo in lineListInBlock:
+            # this is the block we're interested in 
+            for testLine in lineList:
+                if testLine in lineListInBlock:
+                    return True
+                else:
+                    return False
+
+        lineListInBlock = []
+    return False
+
+
 
 if __name__ == '__main__':
 
@@ -200,6 +221,11 @@ if __name__ == '__main__':
     _JUSTIFICATION_TOLERANCE = 8
 
     LUIScalls = 0
+
+    # prescription items identified 
+    prescriptionItms = {}
+    # list of identified prescription items
+    prescriptionItmsLst = [] 
 
     # set up access to the Cosmos DB instance
         # set up a connection to CosmsoDB
@@ -279,8 +305,96 @@ if __name__ == '__main__':
 
             else:
                 textLine['LUISres'] = 'undetermined'
-    # Finally we will try and identify medical products and quantities 
-    # from the augmented textBlocks
-                
 
-    write_http_response(200, tbArray)
+    # We will try and identify blocks having medical products and quantities 
+    # from the augmented textBlocks
+
+    medProdProcessedLineNos = [] #List containing product line# we've processed
+    for textBlock in tbArray:
+        # find text blocks that have MedProdName, directions and quantity
+        mpname = 0
+        direct = 0
+        quantity = 0
+        for textLine in textBlock:
+            if 'MedProdName' in textLine.keys():
+                mpname += 1
+                medProdToAdd = (textLine['MedProdName'], textLine['MedProdID'], textLine['lineNo'])
+
+            if textLine['LUISres'] == u'directions':
+                direct += 1
+
+            if textLine['LUISres'] == u'quantity':
+                quantity += 1
+                quantityToAdd = textLine['lineTxt']
+
+        if mpname == 1 and direct == 1 and quantity == 1:
+            prescriptionItms['MedProdName'] = medProdToAdd[0]
+            prescriptionItms['MedProdID'] = medProdToAdd[1]
+            prescriptionItms['Quantity'] = quantityToAdd
+            prescriptionItms['IDType'] = 'Colocated MDQ'
+            prescriptionItmsLst.append(copy.deepcopy(prescriptionItms))
+            medProdProcessedLineNos.append(copy.deepcopy(medProdToAdd[2]))
+
+    # find text blocks that have MedProdName, directions and quantity in 
+    # adjacent blocks but excluding any blocks with MDQ identified already
+    orphanedMedProd = ()
+    orphanedDirections = 0
+    orphanedQuantity = u''
+    for textBlock in tbArray:
+
+        if lineInSameBlockAsLineList(textBlock[0]['lineNo'],
+         medProdProcessedLineNos ):
+            continue
+        elif len(orphanedMedProd) == 0:
+            # go thru lines in block to see if we can find an orphaned product
+            for textLine in textBlock:
+                if ( u'MedProdName' in textLine.keys() and textLine['lineNo'] 
+                 not in medProdProcessedLineNos ):
+                    orphanedMedProd = ( textLine['MedProdName'], 
+                     textLine['MedProdID'], textLine['lineNo'])
+
+                if ( textLine['LUISres'] == u'directions' and
+                 orphanedMedProd is not None ):
+                    # only if this happens after we've found  medical prod
+                    orphanedDirections += 1
+
+                if ( textLine['LUISres'] == u'quantity' and
+                 orphanedMedProd is not None ):
+                    # only if this happens after we've found  medical prod
+                    orphanedQuantity = textLine['lineTxt']
+
+        elif len(orphanedMedProd) != 0:
+            # we have an orphan medical product set from last block
+            # see if we can find directions and quantity in the next block
+            for textLine in textBlock:
+
+                if ( textLine['LUISres'] == u'directions' 
+                 and orphanedDirections == 0):
+                    orphanedDirections += 1
+
+                if ( textLine['LUISres'] == u'quantity' and
+                 orphanedQuantity == u''):
+                    orphanedQuantity = textLine['lineTxt']
+            
+            if ( len(orphanedMedProd) != 0 and orphanedDirections > 0 and
+             orphanedQuantity != u''):
+                # we have a MDQ set from adjacent blocks
+                prescriptionItms['MedProdName'] = orphanedMedProd[0]
+                prescriptionItms['MedProdID'] = orphanedMedProd[1]
+                prescriptionItms['Quantity'] = orphanedQuantity
+                prescriptionItms['IDType'] = 'Adjacent block MDQ'
+                prescriptionItmsLst.append(copy.deepcopy(prescriptionItms))
+                medProdProcessedLineNos.append(copy.deepcopy(orphanedMedProd[2]))
+                # reset the orphan variables
+                orphanedMedProd = ()
+                orphanedDirections = 0
+                orphanedQuantity = u''
+            else:
+                # we don't have MDQ so reset the orphan variables
+                orphanedMedProd = ()
+                orphanedDirections = 0
+                orphanedQuantity = u''
+
+          
+
+    write_http_response(200, prescriptionItmsLst)
