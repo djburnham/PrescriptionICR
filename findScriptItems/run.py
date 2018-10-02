@@ -6,6 +6,7 @@ import sys
 import requests
 import ConfigParser
 import copy
+import difflib
 from pprint import pprint as pp
 
 __author__ = 'David.Burnham@microsoft.com'
@@ -105,12 +106,11 @@ def textBlockScan(postdict):
 def lookupMedProd(medProdStr):
     """check the medical products store in CosmosDB for the product
     Todo:
-        This only does exact matches - need fuzzy matching
         There is almost no error handling - what if the network
             database is not available?
     """
     query = {'query': """SELECT * FROM prescriptionItems p 
-     WHERE CONTAINS('{0}', p.MEDICINAL_PRODUCT_NAME )""".format(medProdStr)}
+     WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(medProdStr)}
     
     docs = CdbClient.QueryDocuments(coll_link, query)
     resLst = list(docs)
@@ -120,10 +120,35 @@ def lookupMedProd(medProdStr):
         resDict['medical_product_name'] = resLst[0][u'MEDICINAL_PRODUCT_NAME']
         resDict['product_id'] = resLst[0][u'id']
         return resDict
-    else:
-        # do something sensible if we get none or many results back
-        resDict['search'] = 'notOneFound'
-        return resDict
+    else:        
+        # chop string in half and search - likely to get a set of results
+        # use difflib to select the most similar to the search string
+        halfStr = medProdStr[0:int(len(medProdStr)/2)]
+        query = {'query': """SELECT p.id, p.MEDICINAL_PRODUCT_NAME 
+         FROM prescriptionItems p
+         WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(halfStr)}
+        docs = CdbClient.QueryDocuments(coll_link, query)
+        matchLst = list(docs)
+        bestMatchMedProdName = ''
+        bestMatchMedProdID = 0
+        bestMatchValue = 0
+        if len(matchLst) > 0 and u'MEDICINAL_PRODUCT_NAME' in matchLst[0].keys():
+            for matchLineDict in matchLst:
+                matchVal = difflib.SequenceMatcher(None, medProdStr, 
+                 matchLineDict[u'MEDICINAL_PRODUCT_NAME'] ).ratio()
+                if matchVal > bestMatchValue :
+                     bestMatchMedProdName = matchLineDict[u'MEDICINAL_PRODUCT_NAME']
+                     bestMatchMedProdID = matchLineDict[u'id']
+                     bestMatchValue = matchVal
+            
+            resDict['search'] = 'matchedFromFirstHalf'
+            resDict['medical_product_name'] = bestMatchMedProdName
+            resDict['product_id'] = bestMatchMedProdID
+            return resDict
+        else:
+            resDict['search'] = 'noMatch'
+            return resDict
+
 
 def makeLUIScall(line):
     """make a call to the LUIS service to see Line intent
@@ -297,11 +322,18 @@ if __name__ == '__main__':
                     'medicinalProductName'):
                     # We are relying on the LUIS model finding the med product
                     # Should we also test none intent also ?
+
                     # see if we can find the medical product in the database
                     lookUpDict = lookupMedProd(textLine['lineTxt'])
                     if lookUpDict['search'] == 'oneFound':
                         textLine['MedProdName'] = lookUpDict['medical_product_name']
                         textLine['MedProdID'] = int(lookUpDict['product_id'])
+                        textLine['MedProdMatch'] = 'exact'
+                    # handle best match searches    
+                    elif lookUpDict['search'] == 'matchedFromFirstHalf':
+                        textLine['MedProdName'] = lookUpDict['medical_product_name']
+                        textLine['MedProdID'] = int(lookUpDict['product_id'])
+                        textLine['MedProdMatch'] = 'bestMatch'
 
             else:
                 textLine['LUISres'] = 'undetermined'
