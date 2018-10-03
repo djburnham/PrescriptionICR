@@ -7,7 +7,14 @@ import requests
 import ConfigParser
 import copy
 import difflib
+import time
 from pprint import pprint as pp
+
+"""
+Script to parse the output of the Computer Vision system OCR
+for prescriptions and identify prescriptions items contained
+in the scripts 
+"""
 
 __author__ = 'David.Burnham@microsoft.com'
 
@@ -109,10 +116,14 @@ def lookupMedProd(medProdStr):
         There is almost no error handling - what if the network
             database is not available?
     """
+
+    global CosmosCalls  # I don't want this rebound as local
+    
     query = {'query': """SELECT * FROM prescriptionItems p 
      WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(medProdStr)}
     
     docs = CdbClient.QueryDocuments(coll_link, query)
+    CosmosCalls += 1
     resLst = list(docs)
     resDict = dict()
     if len(resLst) == 1:
@@ -123,11 +134,12 @@ def lookupMedProd(medProdStr):
     else:        
         # chop string in half and search - likely to get a set of results
         # use difflib to select the most similar to the search string
-        halfStr = medProdStr[0:int(len(medProdStr)/2)]
+        halfStr = medProdStr[0:int(len(medProdStr)/2)].strip()
         query = {'query': """SELECT p.id, p.MEDICINAL_PRODUCT_NAME 
          FROM prescriptionItems p
          WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(halfStr)}
         docs = CdbClient.QueryDocuments(coll_link, query)
+        CosmosCalls += 1
         matchLst = list(docs)
         bestMatchMedProdName = ''
         bestMatchMedProdID = 0
@@ -224,7 +236,7 @@ def lineInSameBlockAsLineList(lineNo, lineList):
 
 
 if __name__ == '__main__':
-
+    startTime = time.time()
     #Get the configuration variables for the run
     config = ConfigParser.ConfigParser()
     config.read('findScriptItems/config.ini')
@@ -242,10 +254,11 @@ if __name__ == '__main__':
     _AZURE_FUNCTION_HTTP_INPUT_ENV_NAME = "req"
     _AZURE_FUNCTION_HTTP_OUTPUT_ENV_NAME = "res"
     _REQ_PREFIX = "REQ_"
-    _LINE_PROXIMITY_TOLERANCE = 5
+    _LINE_PROXIMITY_TOLERANCE = 7
     _JUSTIFICATION_TOLERANCE = 8
 
     LUIScalls = 0
+    CosmosCalls = 0
 
     # prescription items identified 
     prescriptionItms = {}
@@ -263,6 +276,7 @@ if __name__ == '__main__':
     coll_id = CdbCollID
     coll_query = "select * from r where r.id = '{0}'".format(coll_id)
     collLst = list(CdbClient.QueryCollections(db_link, coll_query))
+    CosmosCalls += 1
     if len(collLst) == 1:
         coll = list(CdbClient.QueryCollections(db_link, coll_query))[0]
     else:
@@ -427,6 +441,21 @@ if __name__ == '__main__':
                 orphanedDirections = 0
                 orphanedQuantity = u''
 
-          
+    # verify that we got the right number of items
+    if noPresItemChk is None:
+        ScriptItemNumberVerify = 'unverified'
+    elif noPresItemChk == len(prescriptionItmsLst):
+        ScriptItemNumberVerify = 'verified'
+    elif noPresItemChk != len(prescriptionItmsLst):
+        ScriptItemNumberVerify = 'failed'
 
-    write_http_response(200, prescriptionItmsLst)
+    runTime = time.time() - startTime
+
+    respDict={}
+    respDict['LUISCalls'] = LUIScalls
+    respDict['CosmosCalls'] = CosmosCalls
+    respDict['runTime'] = round(runTime, 2)
+    respDict['noPresItemChk'] = ScriptItemNumberVerify
+    respDict['prescriptionItems'] = prescriptionItmsLst
+
+    write_http_response(200, respDict)
