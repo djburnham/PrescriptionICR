@@ -298,7 +298,7 @@ if __name__ == '__main__':
     LUIScalls = 0
     CosmosCalls = 0
 
-    debugFlg = False
+    debugFlg = True
 
     # prescription items identified 
     prescriptionItms = {}
