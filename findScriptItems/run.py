@@ -18,6 +18,10 @@ in the scripts
 
 __author__ = 'David.Burnham@microsoft.com'
 
+def ifDebug(debugTxt):
+    if debugFlg:
+        print(debugTxt)
+
 def bbTop(bbox):
     """Return the top of the bounding box"""
     return((bbox[1]+bbox[3])/2 )
@@ -87,7 +91,7 @@ def textBlockScan(postdict):
                             # add as new list
                     if eitherLineFound == False:
                         textBlocks.append([lidx,midx])
-    # print(textBlocks)                
+
     # We can still have lines that don't match any others
     #  -we need to add them 
     for slNo in range(0, len(postdict['recognitionResult']['lines']) ):
@@ -119,7 +123,8 @@ def lookupMedProd(medProdStr):
 
     global CosmosCalls  # I don't want this rebound as local
     
-    query = {'query': """SELECT * FROM prescriptionItems p 
+    query = {'query': """SELECT p.id, p.MEDICINAL_PRODUCT_NAME
+     FROM prescriptionItems p 
      WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(medProdStr)}
     
     docs = CdbClient.QueryDocuments(coll_link, query)
@@ -152,14 +157,39 @@ def lookupMedProd(medProdStr):
                      bestMatchMedProdName = matchLineDict[u'MEDICINAL_PRODUCT_NAME']
                      bestMatchMedProdID = matchLineDict[u'id']
                      bestMatchValue = matchVal
-            
+                     #
             resDict['search'] = 'matchedFromFirstHalf'
             resDict['medical_product_name'] = bestMatchMedProdName
             resDict['product_id'] = bestMatchMedProdID
             return resDict
         else:
-            resDict['search'] = 'noMatch'
-            return resDict
+            # check on the last half of the string
+            endHalfStr = medProdStr[int(len(medProdStr)/2):].strip()
+            query = {'query': """SELECT p.id, p.MEDICINAL_PRODUCT_NAME 
+            FROM prescriptionItems p
+            WHERE CONTAINS( p.MEDICINAL_PRODUCT_NAME, '{0}' )""".format(endHalfStr)}
+            docs = CdbClient.QueryDocuments(coll_link, query)
+            CosmosCalls += 1
+            matchLst = list(docs)
+            bestMatchMedProdName = ''
+            bestMatchMedProdID = 0
+            bestMatchValue = 0
+            if len(matchLst) > 0 and u'MEDICINAL_PRODUCT_NAME' in matchLst[0].keys():
+                for matchLineDict in matchLst:
+                    matchVal = difflib.SequenceMatcher(None, medProdStr, 
+                    matchLineDict[u'MEDICINAL_PRODUCT_NAME'] ).ratio()
+                    if matchVal > bestMatchValue :
+                        bestMatchMedProdName = matchLineDict[u'MEDICINAL_PRODUCT_NAME']
+                        bestMatchMedProdID = matchLineDict[u'id']
+                        bestMatchValue = matchVal
+                        #   
+                resDict['search'] = 'matchedFromLastHalf'
+                resDict['medical_product_name'] = bestMatchMedProdName
+                resDict['product_id'] = bestMatchMedProdID
+                return resDict
+            else:
+                resDict['search'] = 'noMatch'
+                return resDict
 
 
 def makeLUIScall(line):
@@ -172,6 +202,8 @@ def makeLUIScall(line):
         sys.exit(1)
     if r.status_code == 200:
         resDir = json.loads(r.text)
+        if resDir['topScoringIntent']['intent'] == 'medicinalProductName':
+            ifDebug(resDir)
         if float(resDir['topScoringIntent']['score']) > LUIS_MATCH_SCORE_MIN:
             resDir['result'] = 'success'
             return resDir
@@ -184,7 +216,13 @@ def makeLUIScall(line):
         return resDir
 
 def toInt(inStr):
-    """ return an integer from a text string or word """
+    """ return an integer from a text string or word 
+    could be u'160, 000u/1al 4' as an example
+    """
+    # if the leftmost chr is digit then return it as an int
+    if inStr[-1].isdigit:
+        return  int(inStr[-1])
+
     inStr = inStr.encode('ascii','ignore')
     inStr = inStr.strip().lower()
     convDict = {
@@ -260,6 +298,8 @@ if __name__ == '__main__':
     LUIScalls = 0
     CosmosCalls = 0
 
+    debugFlg = False
+
     # prescription items identified 
     prescriptionItms = {}
     # list of identified prescription items
@@ -283,7 +323,7 @@ if __name__ == '__main__':
         print("Error - are you sure you have the collection name correct?")
     coll_link = coll['_self']
 
-    print("Started processing the OCR Data")
+    ifDebug("Started processing the OCR Data")
     env = os.environ
 
     # Get HTTP METHOD
@@ -291,7 +331,7 @@ if __name__ == '__main__':
 
     if http_method.lower() == 'post':
         request_body = open(env[_AZURE_FUNCTION_HTTP_INPUT_ENV_NAME], "r").read()
-        print("Got request body as Text")
+        ifDebug("Got request body as Text")
     else:
         resp = {"message" : "need to call this service with POST method to be useful."}
         write_http_response(200, resp )
@@ -330,13 +370,12 @@ if __name__ == '__main__':
                     if ( (len(LUISres['entities']) == 1 ) 
                     and LUISres['entities'][0]['type'] == "noItem"):
                         noPresItemChk = toInt(LUISres['entities'][0]['entity'])
-                        print("Expect to find {} items in script".format(noPresItemChk))
+                        ifDebug("Expect to find {} items in script".format(noPresItemChk))
 
                 if ( LUISres['topScoringIntent']['intent'] == 
-                    'medicinalProductName'):
+                    'medicinalProductName' ):
                     # We are relying on the LUIS model finding the med product
-                    # Should we also test none intent also ?
-
+                    
                     # see if we can find the medical product in the database
                     lookUpDict = lookupMedProd(textLine['lineTxt'])
                     if lookUpDict['search'] == 'oneFound':
@@ -344,7 +383,8 @@ if __name__ == '__main__':
                         textLine['MedProdID'] = int(lookUpDict['product_id'])
                         textLine['MedProdMatch'] = 'exact'
                     # handle best match searches    
-                    elif lookUpDict['search'] == 'matchedFromFirstHalf':
+                    elif ( lookUpDict['search'] == 'matchedFromFirstHalf' or
+                     lookUpDict['search'] == 'matchedFromLastHalf' ):
                         textLine['MedProdName'] = lookUpDict['medical_product_name']
                         textLine['MedProdID'] = int(lookUpDict['product_id'])
                         textLine['MedProdMatch'] = 'bestMatch'
@@ -455,6 +495,7 @@ if __name__ == '__main__':
     respDict['LUISCalls'] = LUIScalls
     respDict['CosmosCalls'] = CosmosCalls
     respDict['runTime'] = round(runTime, 2)
+    respDict['expectedItems'] = noPresItemChk
     respDict['noPresItemChk'] = ScriptItemNumberVerify
     respDict['prescriptionItems'] = prescriptionItmsLst
 
