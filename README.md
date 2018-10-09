@@ -6,6 +6,6 @@ closely located into blocks
 
 findScriptItems	 - goes through the output of textBlock scan and tries to identify prescription items
 by classifying them with LUIS and looking for the precription item, directions and quantity in a block
-
+run.py in the findScriptItems directory is the azure function script code.
 
 
